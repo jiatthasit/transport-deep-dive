@@ -85,11 +85,17 @@ def publish(date, keep=7):
     msg = f'Deep Dive {date}\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>'
     c = run('commit', '-m', msg)
     print(c.stdout.strip() or c.stderr.strip())
-    for attempt in range(2):
+    import time
+    waits = [0, 30, 90, 180]   # a 403 from the git proxy was seen once; retry with growing waits
+    for attempt, w in enumerate(waits):
+        if w:
+            print(f'push retry {attempt} after {w}s', flush=True); time.sleep(w)
         r = run('push', 'origin', 'HEAD:main')
         if r.returncode == 0:
             print('pushed'); return
-        run('pull', '--rebase', 'origin', 'main')
+        print('push error:', r.stderr.strip()[-300:], flush=True)
+        if '403' not in r.stderr:
+            run('pull', '--rebase', 'origin', 'main')
     print('PUSH FAILED', r.stderr); sys.exit(1)
 
 if __name__ == '__main__':
